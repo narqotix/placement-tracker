@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placement Goal Tracker - Live Wallpaper</title>
+  <style>
+    :root {
+      --amazon-orange: #FF9900;
+      --razorpay-cyan: #3395FF;
+      --accent-green: #10B981;
+      --accent-yellow: #F59E0B;
+      --accent-red: #EF4444;
+      --bg-dark: #060913;
+      --card-bg: rgba(12, 16, 28, 0.88);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --text-main: #F3F4F6;
+      --text-sub: #9CA3AF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+    }
+
+    /* High Quality Anime Wallpaper Background */
+    .bg-art {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background-image: url('boy_studying.jpg'); /* Make sure your image is named this in the same folder */
+      background-size: cover;
+      background-position: right center;
+      filter: brightness(0.7) contrast(1.1);
+    }
+
+    /* Ambient Overlay to blend backdrop with UI */
+    .bg-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background: linear-gradient(90deg, rgba(6, 9, 19, 0.95) 0%, rgba(6, 9, 19, 0.8) 50%, rgba(6, 9, 19, 0.2) 100%);
+      pointer-events: none;
+    }
+
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px 24px;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      padding: 10px 20px;
+      border-radius: 14px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .brand-title h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--amazon-orange), var(--razorpay-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .tracker-grid {
+      display: grid;
+      grid-template-columns: 340px 380px 340px;
+      gap: 16px;
+      margin-top: 10px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: calc(100vh - 140px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title.dsa { color: var(--razorpay-cyan); }
+    .card-title.aiml { color: var(--amazon-orange); }
+    .card-title.right { color: #A7F3D0; }
+
+    .percentage {
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .dsa-fill { background: linear-gradient(90deg, #0052D4, var(--razorpay-cyan)); }
+    .aiml-fill { background: linear-gradient(90deg, #FF416C, var(--amazon-orange)); }
+    .lc-fill { background: linear-gradient(90deg, var(--accent-green), var(--razorpay-cyan)); }
+
+    .task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .task-list::-webkit-scrollbar { width: 4px; }
+    .task-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+    }
+
+    .task-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .task-checkbox {
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border: 2px solid var(--text-sub);
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .task-checkbox:checked {
+      background: var(--accent-green);
+      border-color: var(--accent-green);
+    }
+
+    .task-checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      color: #000;
+      font-weight: bold;
+      font-size: 10px;
+      top: -3px;
+      left: 1px;
+    }
+
+    .task-label {
+      font-size: 0.8rem;
+      color: var(--text-main);
+      flex-grow: 1;
+      cursor: pointer;
+    }
+
+    .task-checkbox:checked + .task-label {
+      text-decoration: line-through;
+      color: var(--text-sub);
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .btn-delete:hover { color: var(--accent-red); }
+
+    .sub-tasks {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding-left: 20px;
+    }
+
+    .sub-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.73rem;
+      color: var(--text-sub);
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .countdown-box {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      text-align: center;
+    }
+
+    .time-unit {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 8px 4px;
+      border-radius: 8px;
+    }
+
+    .time-num {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--amazon-orange);
+    }
+
+    .time-lbl {
+      font-size: 0.65rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+    }
+
+    .lc-stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .lc-card {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 8px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .lc-title { font-size: 0.7rem; font-weight: 700; }
+    .lc-title.easy { color: var(--accent-green); }
+    .lc-title.med { color: var(--accent-yellow); }
+    .lc-title.hard { color: var(--accent-red); }
+
+    .lc-count-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .lc-num { font-weight: 800; font-size: 0.95rem; }
+
+    .btn-inc {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-inc:hover { background: rgba(255, 255, 255, 0.25); }
+
+    .add-focus-form {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .add-sub-form {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+      padding-left: 20px;
+    }
+
+    .add-sub-form .focus-input {
+      font-size: 0.7rem;
+      padding: 4px 6px;
+    }
+
+    .add-sub-form .focus-btn {
+      padding: 4px 8px;
+    }
+
+    .focus-input {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: #fff;
+      font-size: 0.75rem;
+      outline: none;
+    }
+
+    .focus-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 12px;
+    }
+
+    .backup-controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .backup-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #F3F4F6;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-weight: 600;
+    }
+
+    .backup-btn:hover { background: rgba(255, 255, 255, 0.15); }
+    .backup-btn.export { color: var(--razorpay-cyan); }
+    .backup-btn.import { color: var(--amazon-orange); }
+
+  </style>
+</head>
+<body>
+
+  <!-- Background Anime Image -->
+  <div class="bg-art"></div>
+  <div class="bg-overlay"></div>
+
+  <div class="ui-layer">
+    <header class="interactive">
+      <div class="brand-title">
+        <h1>Placement Target 2026</h1>
+      </div>
+      <div style="font-size: 0.8rem; color: var(--text-sub);">
+        Target: <span style="color: var(--amazon-orange); font-weight: 700;">Amazon</span> & <span style="color: var(--razorpay-cyan); font-weight: 700;">Razorpay</span>
+      </div>
+    </header>
+
+    <div class="tracker-grid interactive">
+      <!-- DSA Roadmap Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title dsa">
+            <span>⚡</span> DSA Roadmap
+          </div>
+          <div class="percentage" id="dsa-pct">0%</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill dsa-fill" id="dsa-bar"></div>
+        </div>
+        <ul class="task-list" id="dsa-list"></ul>
+        <div class="add-focus-form">
+          <input type="text" class="focus-input" id="dsa-input" placeholder="Add DSA module...">
+          <button class="focus-btn" onclick="addDSA()">Add</button>
+        </div>
+      </div>
+
+      <!-- AI/ML Roadmap Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title aiml">
+            <span>🧠</span> AI/ML Roadmap
+          </div>
+          <div class="percentage" id="aiml-pct">0%</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill aiml-fill" id="aiml-bar"></div>
+        </div>
+        <ul class="task-list" id="aiml-list"></ul>
+        <div class="add-focus-form">
+          <input type="text" class="focus-input" id="aiml-input" placeholder="Add AI/ML domain...">
+          <button class="focus-btn" onclick="addAIMLDomain()">Add</button>
+        </div>
+      </div>
+
+      <!-- Right Column: Timer, Focus & LeetCode -->
+      <div class="right-col">
+        <!-- 1. Countdown Widget -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title right">
+              <span>⏳</span> Placement Drive Countdown
+            </div>
+          </div>
+          <div class="countdown-box">
+            <div class="time-unit"><div class="time-num" id="cd-days">120</div><div class="time-lbl">Days</div></div>
+            <div class="time-unit"><div class="time-num" id="cd-hours">00</div><div class="time-lbl">Hours</div></div>
+            <div class="time-unit"><div class="time-num" id="cd-mins">00</div><div class="time-lbl">Mins</div></div>
+            <div class="time-unit"><div class="time-num" id="cd-secs">00</div><div class="time-lbl">Secs</div></div>
+          </div>
+        </div>
+
+        <!-- 2. Today's Focus Card -->
+        <div class="card" style="flex-grow: 1;">
+          <div class="card-header">
+            <div class="card-title right">
+              <span>🎯</span> Today's Focus
+            </div>
+          </div>
+          <ul class="task-list" id="focus-list"></ul>
+          <div class="add-focus-form">
+            <input type="text" class="focus-input" id="focus-input" placeholder="Add today's task...">
+            <button class="focus-btn" onclick="addFocusTask()">Add</button>
+          </div>
+        </div>
+
+        <!-- 3. Striver's Sheet / LeetCode Counter -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title right">
+              <span>💡</span> Striver's A2Z Sheet Target
+            </div>
+            <div class="percentage" id="lc-pct">0/455</div>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill lc-fill" id="lc-bar"></div>
+          </div>
+          <div class="lc-stats">
+            <div class="lc-card">
+              <span class="lc-title easy">EASY</span>
+              <div class="lc-count-row">
+                <button class="btn-inc" onclick="updateLC('easy', -1)">-</button>
+                <span class="lc-num" id="lc-easy">0</span>
+                <button class="btn-inc" onclick="updateLC('easy', 1)">+</button>
+              </div>
+            </div>
+            <div class="lc-card">
+              <span class="lc-title med">MEDIUM</span>
+              <div class="lc-count-row">
+                <button class="btn-inc" onclick="updateLC('med', -1)">-</button>
+                <span class="lc-num" id="lc-med">0</span>
+                <button class="btn-inc" onclick="updateLC('med', 1)">+</button>
+              </div>
+            </div>
+            <div class="lc-card">
+              <span class="lc-title hard">HARD</span>
+              <div class="lc-count-row">
+                <button class="btn-inc" onclick="updateLC('hard', -1)">-</button>
+                <span class="lc-num" id="lc-hard">0</span>
+                <button class="btn-inc" onclick="updateLC('hard', 1)">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer with Backup Controls -->
+    <footer class="interactive">
+      <div style="font-size: 0.75rem; color: var(--text-sub);">
+        Definition of Done: <span style="color: #fff; font-weight: 700;">Theory | Notes | Code | Test | Revise | GitHub</span>
+      </div>
+      
+      <div class="backup-controls">
+        <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(event)">
+        <button class="backup-btn import" onclick="document.getElementById('import-file').click()">📤 Import Save</button>
+        <button class="backup-btn export" onclick="exportData()">📥 Export Save</button>
+      </div>
+    </footer>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // =========================================================================
+    // STEP 1: ADD YOUR FIREBASE CONFIG HERE (Get this from console.firebase.google.com)
+    // =========================================================================
+    const firebaseConfig = {
+  apiKey: "AIzaSyAFs3HbzHFLjIHjys9MZbmzr_m1TpW5Mu8",
+  authDomain: "placementtracker2027.firebaseapp.com",
+  projectId: "placementtracker2027",
+  storageBucket: "placementtracker2027.firebasestorage.app",
+  messagingSenderId: "1062681095890",
+  appId: "1:1062681095890:web:50e26ca2ba1b9e0f56c70b"
+};
+
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'placement-tracker-2026';
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const dsaModules = [
+      "01-git-github", "02-programming-basics", "03-flowcharts", "04-java-introduction",
+      "05-java-basics", "06-conditionals-loops", "07-switch", "08-functions",
+      "09-arrays", "10-linear-search", "11-binary-search", "12-binary-search-2d",
+      "13-sorting", "14-strings", "15-patterns", "16-recursion", "17-complexity",
+      "18-bit-manipulation", "19-backtracking", "20-oops", "21-linked-list",
+      "22-stack-queue", "23-trees", "24-big-data", "25-file-handling", "26-heaps",
+      "27-hashing", "28-advanced-strings-greedy", "29-range-queries"
+    ];
+
+    const aimlDomains = [
+      { title: "01. Python Programming", sub: ["Syntax & Variables", "Data Types & Conversion", "Conditions & Loops", "Strings & Methods", "Lists, Tuples, Sets, Dicts", "Functions & Lambdas", "OOP Concepts", "Exception & File Handling", "Virtual Environments", "Jupyter & Colab"] },
+      { title: "02. Mathematics & Statistics", sub: ["Vectors & Matrices", "Matrix Ops & Dot Products", "Mean, Median, Mode, Variance", "Probability & Conditional", "Bayes' Theorem", "Probability Distributions", "Hypothesis Testing", "Derivatives & Partial Derivatives", "Gradient Descent"] },
+      { title: "03. Data Analysis & Visualization", sub: ["NumPy Indexing & Broadcasting", "Pandas DataFrames", "Reading CSV/Excel/JSON", "Filtering & Aggregation", "Missing-Value Handling", "Outlier Handling", "EDA Basics", "Matplotlib & Seaborn", "SQL Basics"] },
+      { title: "04. Core Machine Learning", sub: ["Supervised vs Unsupervised", "Linear & Polynomial Reg", "Logistic Regression", "KNN & Naive Bayes", "Decision Trees & SVM", "K-Means & DBSCAN", "PCA"] },
+      { title: "05. Feature Engineering & Evaluation", sub: ["Train/Val/Test Split", "Categorical Encoding", "Scaling & Transformation", "Confusion Matrix & Metrics", "Cross-Validation", "Bias-Variance Trade-Off", "L1/L2 Regularization", "Scikit-Learn Pipelines"] },
+      { title: "06. Advanced Machine Learning", sub: ["Bagging & Boosting", "Random Forest", "AdaBoost & XGBoost", "LightGBM / CatBoost", "Class Imbalance Resampling", "SHAP & Model Interpretability"] },
+      { title: "07. Deep Learning", sub: ["Perceptrons & Neural Networks", "Tensors & Operations", "Activation Functions & Backprop", "Optimizers (SGD, Adam)", "PyTorch Tensors & Autograd", "CNNs & Transfer Learning", "RNNs & LSTMs"] },
+      { title: "08. AI Specializations", sub: ["NLP Tokenization & TF-IDF", "Word Embeddings", "Computer Vision Basics", "Object Detection Basics", "Time-Series Forecasting", "Reinforcement Learning"] },
+      { title: "09. Generative AI & LLMs", sub: ["Attention & Transformers", "LLM APIs & Prompt Eng", "Structured Outputs & Tools", "Vector Search & Databases", "RAG & Chunking Strategies", "PEFT & Fine-Tuning", "AI Agents & Safety"] },
+      { title: "10. MLOps & Deployment", sub: ["Joblib/Pickle Model Saving", "FastAPI Prediction API", "Streamlit/Gradio Demo", "Docker Fundamentals", "MLflow Tracking", "Cloud Deployment & CI/CD"] }
+    ];
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    
+    const defaultDSA = dsaModules.map(mod => ({ title: mod, done: false }));
+    const defaultAIML = aimlDomains.map(domain => ({
+      title: domain.title,
+      sub: domain.sub.map(subTitle => ({ title: subTitle, done: false }))
+    }));
+
+    // Default state with pre-populated roadmaps
+    let savedData = { 
+      dsaList: JSON.parse(JSON.stringify(defaultDSA)), 
+      aimlList: JSON.parse(JSON.stringify(defaultAIML)), 
+      focus: [], 
+      lastDate: todayStr, 
+      lc: { easy: 0, med: 0, hard: 0 }
+    };
+    let docRef = null;
+
+    // Migrate old static data structure to dynamic lists if needed
+    function migrateData(data) {
+      if (!data.dsaList) {
+        data.dsaList = data.dsa ? 
+          dsaModules.map(mod => ({ title: mod, done: !!data.dsa[mod] })) : 
+          JSON.parse(JSON.stringify(defaultDSA));
+      }
+      if (!data.aimlList) {
+        data.aimlList = data.aiml ? 
+          aimlDomains.map((domain, dIdx) => ({
+            title: domain.title,
+            sub: domain.sub.map((subTitle, sIdx) => ({
+              title: subTitle,
+              done: !!data.aiml[`${dIdx}_${sIdx}`]
+            }))
+          })) : 
+          JSON.parse(JSON.stringify(defaultAIML));
+      }
+      return data;
+    }
+
+    // --- CLOUD DATABASE INITIALIZATION ---
+    async function initCloudDB() {
+      try {
+        if (typeof __initial_auth_token !== 'undefined') {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+        
+        const user = auth.currentUser;
+        if (!user) return;
+
+        // Path to your personal cloud document
+        docRef = doc(db, 'artifacts', appId, 'users', user.uid);
+
+        // Listen for live changes from the cloud
+        onSnapshot(docRef, (snapshot) => {
+          if (snapshot.exists()) {
+            savedData = migrateData(snapshot.data());
+            
+            // Daily Reset Logic
+            if (savedData.lastDate !== todayStr) {
+              savedData.focus = [];
+              savedData.lastDate = todayStr;
+              saveData(); // Write reset back to cloud
+            }
+            render();
+          } else {
+            // First time ever opening the app: create cloud save
+            savedData = migrateData(savedData);
+            setDoc(docRef, savedData);
+            render();
+          }
+        }, (error) => {
+          console.error("Cloud Sync Error:", error);
+        });
+
+      } catch (error) {
+        console.error("Authentication Error:", error);
+      }
+    }
+    
+    initCloudDB();
+
+    function saveData() {
+      if (docRef) {
+        // Push data to the cloud instantly
+        setDoc(docRef, savedData, { merge: true });
+      }
+      render(); // Also update UI locally immediately
+    }
+
+    // Expose functions to window since we are using a module script
+    window.exportData = function() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedData));
+      const downloadNode = document.createElement('a');
+      downloadNode.setAttribute("href", dataStr);
+      downloadNode.setAttribute("download", "Placement_Progress_Backup.json");
+      document.body.appendChild(downloadNode);
+      downloadNode.click();
+      downloadNode.remove();
+    }
+
+    window.importData = function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if(importedData && typeof importedData === "object") {
+            savedData = importedData;
+            saveData(); // Sync imported data to cloud
+            alert("✅ Progress successfully restored to Cloud!");
+          }
+        } catch (err) {
+          alert("❌ Error: Invalid backup file.");
+        }
+        document.getElementById('import-file').value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    // --- DSA Roadmap Dynamic Actions ---
+    window.toggleDSA = function(idx) {
+      savedData.dsaList[idx].done = !savedData.dsaList[idx].done;
+      saveData();
+    }
+
+    window.addDSA = function() {
+      const input = document.getElementById('dsa-input');
+      const text = input.value.trim();
+      if (text) {
+        savedData.dsaList.push({ title: text, done: false });
+        input.value = '';
+        saveData();
+      }
+    }
+
+    window.deleteDSA = function(idx) {
+      savedData.dsaList.splice(idx, 1);
+      saveData();
+    }
+
+    // --- AI/ML Roadmap Dynamic Actions ---
+    window.toggleAIMLMain = function(dIdx) {
+      const isAllDone = savedData.aimlList[dIdx].sub.every(s => s.done);
+      savedData.aimlList[dIdx].sub.forEach(s => s.done = !isAllDone);
+      saveData();
+    }
+
+    window.toggleAIMLSub = function(dIdx, sIdx) {
+      savedData.aimlList[dIdx].sub[sIdx].done = !savedData.aimlList[dIdx].sub[sIdx].done;
+      saveData();
+    }
+
+    window.addAIMLDomain = function() {
+      const input = document.getElementById('aiml-input');
+      const text = input.value.trim();
+      if (text) {
+        savedData.aimlList.push({ title: text, sub: [] });
+        input.value = '';
+        saveData();
+      }
+    }
+
+    window.deleteAIMLDomain = function(dIdx) {
+      savedData.aimlList.splice(dIdx, 1);
+      saveData();
+    }
+
+    window.addAIMLSub = function(dIdx) {
+      const input = document.getElementById(`aiml-sub-input-${dIdx}`);
+      const text = input.value.trim();
+      if (text) {
+        savedData.aimlList[dIdx].sub.push({ title: text, done: false });
+        input.value = '';
+        saveData();
+      }
+    }
+
+    window.deleteAIMLSub = function(dIdx, sIdx) {
+      savedData.aimlList[dIdx].sub.splice(sIdx, 1);
+      saveData();
+    }
+
+    // --- Existing Helper Actions ---
+    window.updateLC = function(type, delta) {
+      savedData.lc[type] = Math.max(0, (savedData.lc[type] || 0) + delta);
+      saveData();
+    }
+
+    window.addFocusTask = function() {
+      const input = document.getElementById('focus-input');
+      const text = input.value.trim();
+      if (text) {
+        savedData.focus.push({ id: Date.now(), text, done: false });
+        input.value = '';
+        saveData();
+      }
+    }
+
+    window.toggleFocus = function(id) {
+      const item = savedData.focus.find(f => f.id === id);
+      if (item) {
+        item.done = !item.done;
+        saveData();
+      }
+    }
+
+    window.deleteFocusTask = function(id) {
+      savedData.focus = savedData.focus.filter(f => f.id !== id);
+      saveData();
+    }
+
+    function renderDSA() {
+      const listEl = document.getElementById('dsa-list');
+      listEl.innerHTML = '';
+      let completed = 0;
+
+      if (!savedData.dsaList) return;
+
+      savedData.dsaList.forEach((item, idx) => {
+        if (item.done) completed++;
+
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+          <div class="task-row">
+            <input type="checkbox" class="task-checkbox" ${item.done ? 'checked' : ''} onchange="toggleDSA(${idx})">
+            <span class="task-label" onclick="toggleDSA(${idx})">${item.title}</span>
+            <button class="btn-delete" onclick="deleteDSA(${idx})">×</button>
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+
+      const total = savedData.dsaList.length;
+      const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+      document.getElementById('dsa-bar').style.width = pct + '%';
+      document.getElementById('dsa-pct').textContent = pct + '%';
+    }
+
+    function renderAIML() {
+      const listEl = document.getElementById('aiml-list');
+      listEl.innerHTML = '';
+      let totalSubs = 0;
+      let completedSubs = 0;
+
+      if (!savedData.aimlList) return;
+
+      savedData.aimlList.forEach((domain, dIdx) => {
+        const isMainDone = domain.sub.length > 0 && domain.sub.every(s => s.done);
+        const li = document.createElement('li');
+        li.className = 'task-item';
+
+        let subHTML = '';
+        domain.sub.forEach((subItem, sIdx) => {
+          totalSubs++;
+          if (subItem.done) completedSubs++;
+
+          subHTML += `
+            <div class="sub-item">
+              <input type="checkbox" class="task-checkbox" ${subItem.done ? 'checked' : ''} onchange="toggleAIMLSub(${dIdx}, ${sIdx})">
+              <span style="flex-grow: 1; ${subItem.done ? 'text-decoration: line-through; color: var(--text-sub);' : ''}">${subItem.title}</span>
+              <button class="btn-delete" style="font-size: 0.8rem;" onclick="deleteAIMLSub(${dIdx}, ${sIdx})">×</button>
+            </div>
+          `;
+        });
+
+        // Add subtask form for this domain
+        subHTML += `
+          <div class="add-sub-form">
+            <input type="text" class="focus-input" id="aiml-sub-input-${dIdx}" placeholder="Add subtask...">
+            <button class="focus-btn" onclick="addAIMLSub(${dIdx})">+</button>
+          </div>
+        `;
+
+        li.innerHTML = `
+          <div class="task-row">
+            <input type="checkbox" class="task-checkbox" ${isMainDone ? 'checked' : ''} onchange="toggleAIMLMain(${dIdx})">
+            <span class="task-label" style="font-weight: 700;" onclick="toggleAIMLMain(${dIdx})">${domain.title}</span>
+            <button class="btn-delete" onclick="deleteAIMLDomain(${dIdx})">×</button>
+          </div>
+          <div class="sub-tasks">${subHTML}</div>
+        `;
+        listEl.appendChild(li);
+      });
+
+      const pct = totalSubs === 0 ? 0 : Math.round((completedSubs / totalSubs) * 100);
+      document.getElementById('aiml-bar').style.width = pct + '%';
+      document.getElementById('aiml-pct').textContent = pct + '%';
+    }
+
+    function renderFocus() {
+      const listEl = document.getElementById('focus-list');
+      listEl.innerHTML = '';
+      savedData.focus.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+          <div class="task-row">
+            <input type="checkbox" class="task-checkbox" ${item.done ? 'checked' : ''} onchange="toggleFocus(${item.id})">
+            <span class="task-label" onclick="toggleFocus(${item.id})">${item.text}</span>
+            <button class="btn-delete" onclick="deleteFocusTask(${item.id})">×</button>
+          </div>
+        `;
+        listEl.appendChild(li);
+      });
+    }
+
+    function renderLC() {
+      const easy = savedData.lc.easy || 0;
+      const med = savedData.lc.med || 0;
+      const hard = savedData.lc.hard || 0;
+      const total = easy + med + hard;
+      const target = 455;
+
+      document.getElementById('lc-easy').textContent = easy;
+      document.getElementById('lc-med').textContent = med;
+      document.getElementById('lc-hard').textContent = hard;
+      document.getElementById('lc-pct').textContent = `${total}/${target}`;
+
+      const pct = Math.min(100, Math.round((total / target) * 100));
+      document.getElementById('lc-bar').style.width = pct + '%';
+    }
+
+    function render() {
+      renderDSA();
+      renderAIML();
+      renderFocus();
+      renderLC();
+    }
+
+    // Input Enter Key Support
+    document.getElementById("focus-input").addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addFocusTask();
+      }
+    });
+
+    // Countdown Timer (120 Days)
+    const targetDate = new Date().getTime() + (120 * 24 * 60 * 60 * 1000);
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const diff = Math.max(0, targetDate - now);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
+      document.getElementById('cd-hours').textContent = String(hours).padStart(2, '0');
+      document.getElementById('cd-mins').textContent = String(mins).padStart(2, '0');
+      document.getElementById('cd-secs').textContent = String(secs).padStart(2, '0');
+    }
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+  </script>
+</body>
+</html>
